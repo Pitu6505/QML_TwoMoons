@@ -13,7 +13,7 @@ from Utiles_Scheduler import circuit_path, ensure_circuits_dir, tape_to_qiskit_s
 
 # --- CONFIGURACIÓN DEL EXPERIMENTO MULTIPLEXADO ---
 SCHEDULER_URL = "http://localhost:8082/"
-MY_LOCAL_IP = "http://localhost:5005"
+MY_LOCAL_IP = "http://localhost:5000"
 BATCH_SIZE = 32
 EPOCHS = 15
 SHOTS = 1024
@@ -137,9 +137,9 @@ async def train_moons_barbecho():
     app.router.add_post('/callback', handle_callback)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, 'localhost', 5005)
+    site = web.TCPSite(runner, 'localhost', 5000)
     await site.start()
-    print("🌐 Servidor Puente local activo en el puerto 5005")
+    print("🌐 Servidor Puente local activo en el puerto 5000")
 
     ensure_circuits_dir()
     os.makedirs("checkpoints_hero", exist_ok=True)

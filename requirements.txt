@@ -3,3 +3,5 @@ torch
 numpy
 aiohttp
 scikit-learn
+PennyLane-qiskit==0.44.1
+pennylane_lightning==0.44.0

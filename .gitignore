@@ -1,0 +1,91 @@
+# Entornos virtuales
+venv/
+env/
+ENV/
+.venv/
+
+# Archivos compilados de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Extensiones compiladas
+*.so
+
+# Distribución / empaquetado
+build/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+*.egg
+
+# Instaladores
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Logs
+*.log
+
+# Cobertura y testing
+.coverage
+.coverage.*
+.cache/
+.pytest_cache/
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDEs y editores
+.vscode/
+.idea/
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Variables de entorno
+.env
+.env.*
+
+# Archivos de base de datos
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos temporales
+*.tmp
+*.temp
+
+# Modelos y datos grandes (opcional)
+*.h5
+*.pt
+*.pth
+*.ckpt
+
+# Resultados y salidas
+results/
+outputs/
+logs/
+
+# Archivos de configuración local
+local_settings.py
+
+# Cachés de herramientas de IA
+.huggingface/
+wandb/
+
+# Qiskit Runtime local
+.qiskit/
+
+# Directorios de circuitos generados
+circuits/
+generated_circuits/

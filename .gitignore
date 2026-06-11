@@ -89,3 +89,4 @@ wandb/
 # Directorios de circuitos generados
 circuits/
 generated_circuits/
+circuitos/

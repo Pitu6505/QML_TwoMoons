@@ -13,7 +13,7 @@ from Utiles_Scheduler import circuit_path, ensure_circuits_dir, tape_to_qiskit_s
 
 # --- CONFIGURACIÓN DEL EXPERIMENTO MULTIPLEXADO ---
 SCHEDULER_URL = "http://localhost:8082/"
-MY_LOCAL_IP = "http://localhost:5000"
+MY_LOCAL_IP = "http://localhost:5005"
 BATCH_SIZE = 32
 EPOCHS = 15
 SHOTS = 1024
@@ -137,9 +137,9 @@ async def train_moons_barbecho():
     app.router.add_post('/callback', handle_callback)
     runner = web.AppRunner(app)
     await runner.setup()
-    site = web.TCPSite(runner, 'localhost', 5000)
+    site = web.TCPSite(runner, 'localhost', 5005)
     await site.start()
-    print("🌐 Servidor Puente local activo en el puerto 5000")
+    print("🌐 Servidor Puente local activo en el puerto 5005")
 
     ensure_circuits_dir()
     os.makedirs("checkpoints_hero", exist_ok=True)
@@ -147,15 +147,16 @@ async def train_moons_barbecho():
     optimizer = torch.optim.Adam([weights, bias], lr=LEARNING_RATE)
     start_epoch, start_batch_global = load_checkpoint(optimizer)
 
+    # 🟢 MODIFICACIÓN 1: Añadida la columna 'Batch_Time_Seconds' a la cabecera
     if start_epoch == 0 and start_batch_global == 0:
         with open(CSV_FILE, mode='w', newline='') as file:
             writer = csv.writer(file, delimiter=';')
-            writer.writerow(["Epoch", "Batch", "Loss", "Grad_Norm", "Accuracy_Test", "Bias"])
+            writer.writerow(["Epoch", "Batch", "Loss", "Grad_Norm", "Bias", "Batch_Time_Seconds"])
 
     print(f"\n🚀 INICIANDO EXPERIMENTO QML: TWO MOONS + POLÍTICA BARBECHO 🚀")
 
     for epoch in range(start_epoch, EPOCHS):
-        start_time = time.time()
+        start_time_epoch = time.time()
         epoch_loss = 0
         batches_done = 0
         
@@ -168,15 +169,17 @@ async def train_moons_barbecho():
                 batch_counter += 1
                 continue 
 
+            # 🟢 MODIFICACIÓN 2: Iniciamos el cronómetro justo antes de preparar el batch
+            batch_start_time = time.time() 
+
             idx = perm[i:i+BATCH_SIZE]
             x_batch = X_train[idx]
             y_target = y_train[idx]
-            y_target_pm = (y_target.float() * 2) - 1 # Mapeo de {0, 1} a {-1, 1}
+            y_target_pm = (y_target.float() * 2) - 1 
 
             tapes_to_send = []
             tape_map = [] 
             
-            # Generación de circuitos basados en Parameter-Shift
             for j in range(len(x_batch)):
                 x_val = x_batch[j].detach().numpy()
                 with qml.tape.QuantumTape() as tape:
@@ -203,12 +206,11 @@ async def train_moons_barbecho():
                     with open(circuit_path(fname), "r") as circuit_file:
                         code = circuit_file.read()
                     
-                    # Estructura del Payload configurada con la política BARBECHO
                     payload = {
                         "url": f"{MY_LOCAL_IP}/circuits/{fname}", 
                         "shots": SHOTS,
                         "provider": ['ibm'],
-                        "policy": "barbecho", # 🟢 Activación del empaquetado de mitigación de crosstalk
+                        "policy": "barbecho", 
                         "criterio": 0,
                         "callback_url": f"{MY_LOCAL_IP}/callback",
                         "circuit_name": fname,
@@ -222,7 +224,9 @@ async def train_moons_barbecho():
             print(f"  Epoch {epoch+1} - Batch {batch_counter+1}: Esperando procesamiento multiplexado en QPU...", end="\r")
             await batch_event.wait()
             
-            # Reconstrucción del Gradiente utilizando los resultados devueltos
+            # 🟢 MODIFICACIÓN 3: Paramos el cronómetro en cuanto el Scheduler nos devuelve todo
+            batch_duration = time.time() - batch_start_time
+            
             grad_w_accum = torch.zeros_like(weights)
             grad_b_accum = torch.tensor(0.0) 
             
@@ -251,7 +255,6 @@ async def train_moons_barbecho():
             optimizer.step()
             optimizer.zero_grad()
             
-            # Cálculo del Loss del Batch actual
             with torch.no_grad():
                 preds_batch = torch.stack([qnode(x_batch[j], weights) + bias for j in range(len(x_batch))])
                 batch_loss = torch.mean((preds_batch - y_target_pm)**2)
@@ -259,9 +262,16 @@ async def train_moons_barbecho():
             epoch_loss += batch_loss.item()
             grad_norm = grad_w_accum.norm().item()
             
-            print(f"\n  📈 Batch {batch_counter+1} Finalizado | Loss: {batch_loss.item():.4f} | Grad Norm: {grad_norm:.4f}")
+            print(f"\n  📈 Batch {batch_counter+1} | Loss: {batch_loss.item():.4f} | Grad Norm: {grad_norm:.4f} | Tiempo: {batch_duration:.1f}s")
             
-            # Eliminación de scripts temporales de la iteración
+            # 🟢 MODIFICACIÓN 4: Guardamos en el CSV inmediatamente después de cada batch
+            with open(CSV_FILE, mode='a', newline='') as file:
+                writer = csv.writer(file, delimiter=';')
+                writer.writerow([epoch+1, batch_counter+1, batch_loss.item(), grad_norm, bias.item(), round(batch_duration, 2)])
+            
+            # Salvaguardamos el checkpoint (se actualiza en cada batch para mayor seguridad)
+            save_checkpoint(epoch, batch_counter, optimizer, batch_loss.item(), 0)
+
             for k in range(len(tapes_to_send)):
                 fname = f"e{epoch}_b{batch_counter}_t{k}.py"
                 fpath = circuit_path(fname)
@@ -271,22 +281,16 @@ async def train_moons_barbecho():
             batches_done += 1
             batch_counter += 1
         
-        # --- EVALUACIÓN DE PRECISIÓN (ACCURACY) POR ÉPOCA ---
+        # --- EVALUACIÓN DE PRECISIÓN (ACCURACY) AL FINAL DE LA ÉPOCA ---
         y_pred_test = predict_dataset(X_test, weights, bias)
         epoch_accuracy = accuracy_score(y_test.numpy(), y_pred_test) * 100
-        
+
         avg_loss = epoch_loss / batches_done if batches_done > 0 else 0
-        duration = time.time() - start_time
+        duration_epoch = time.time() - start_time_epoch
         
         print(f"\n✨ ÉPOCA {epoch+1} COMPLETADA ✨")
-        print(f"   Loss Promedio: {avg_loss:.4f} | Accuracy en Test: {epoch_accuracy:.2f}% | Tiempo: {duration:.1f}s")
+        print(f"   Loss Promedio: {avg_loss:.4f} | Accuracy en Test: {epoch_accuracy:.2f}% | Tiempo Total Época: {duration_epoch:.1f}s")
         print("=" * 80)
-        
-        # Salvaguarda de progreso y volcado a CSV
-        save_checkpoint(epoch, batch_counter-1, optimizer, avg_loss, epoch_accuracy)
-        with open(CSV_FILE, mode='a', newline='') as file:
-            writer = csv.writer(file, delimiter=';')
-            writer.writerow([epoch+1, batch_counter, avg_loss, grad_norm, epoch_accuracy, bias.item()])
 
     await runner.cleanup()
     print("🏆 ¡ENTRENAMIENTO MULTIPLEXADO COMPLETADO CON ÉXITO!")

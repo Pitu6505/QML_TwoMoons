@@ -12,8 +12,8 @@ from sklearn.metrics import accuracy_score
 from Utiles_Scheduler import circuit_path, ensure_circuits_dir, tape_to_qiskit_script
 
 # --- CONFIGURACIÓN DEL EXPERIMENTO MULTIPLEXADO ---
-SCHEDULER_URL = "http://localhost:8082/"
-MY_LOCAL_IP = "http://localhost:5000"
+SCHEDULER_URL = "http://127.0.0.1:8082/"
+MY_LOCAL_IP = "http://127.0.0.1:5000"
 BATCH_SIZE = 32
 EPOCHS = 15
 SHOTS = 1024
@@ -209,6 +209,7 @@ async def train_moons_barbecho():
                     payload = {
                         "url": f"{MY_LOCAL_IP}/circuits/{fname}", 
                         "shots": SHOTS,
+                        "num_qubits": N_QUBITS,
                         "provider": ['ibm'],
                         "policy": "barbecho", 
                         "criterio": 0,

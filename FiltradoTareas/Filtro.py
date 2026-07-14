@@ -6,14 +6,14 @@ import pandas as pd
 ARCHIVO = 'IBM_Worloads.csv'  # Nombre del archivo
 
 # Fechas exactas del entrenamiento
-CREACION_INICIO = '07/07/2026 09:41 AM'
+CREACION_INICIO = '7/7/26 09:41 AM'
 CREACION_FIN = None 
 
 FIN_INICIO = None    
 FIN_FIN = '07/09/2026 03:37 PM'
 
 # Límites y costes del entrenamiento QML
-MAX_TAREAS = 75       # Número máximo de tareas (circuitos) correspondientes al entrenamiento
+MAX_TAREAS = 70       # Número máximo de tareas (circuitos) correspondientes al entrenamiento
 PRECIO_POR_MINUTO = 98 # Coste en dólares por minuto de ejecución
 # ==========================================
 
@@ -54,8 +54,8 @@ def analizar_workloads_qml(file_path, created_start, created_end, completed_star
     tareas_encontradas_total = len(df_filtrado)
     
     # Recortar a un máximo de MAX_TAREAS
-    if len(df_filtrado) > max_tareas:
-        df_filtrado = df_filtrado.head(max_tareas)
+    # if len(df_filtrado) > max_tareas:
+    #     df_filtrado = df_filtrado.head(max_tareas)
         
     num_circuitos = len(df_filtrado)
     tiempo_total_segundos = df_filtrado['Usage (seconds)'].sum()

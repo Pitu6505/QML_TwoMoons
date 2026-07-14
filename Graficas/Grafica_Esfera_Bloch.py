@@ -5,15 +5,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-# --- CONFIGURACIÓN ---
+# --- CONFIGURATION ---
 N_QUBITS = 2
 LAYERS = 4
 BASE_DIR = Path(__file__).resolve().parent
 PROYECTO_DIR = BASE_DIR.parent
 CHECKPOINT_FILE = PROYECTO_DIR / "Graficas" / "checkpoint_qdataset_barbecho.pth"
 
-# --- 1. RECONSTRUCCIÓN EXACTA DEL DATASET (Sin adivinanzas) ---
-print("Reconstruyendo el dataset cuántico exacto del entrenamiento...")
+# --- 1. EXACT DATASET RECONSTRUCTION (No guesses) ---
+print("Reconstructing the exact quantum training dataset...")
 np.random.seed(42)
 n_samples = 200
 X_raw = np.random.uniform(0, np.pi, (n_samples, N_QUBITS))
@@ -31,15 +31,15 @@ def teacher_circuit(inputs):
 y_raw = []
 for x in X_raw:
     val = teacher_circuit(x)
-    val += np.random.normal(0, 0.1) # Ruido idéntico al entrenamiento
+    val += np.random.normal(0, 0.1) # Noise identical to training
     y_raw.append(1 if val > 0 else 0)
 
-# Aislamos el conjunto de Test EXACTO (Las últimas 40 muestras del array)
+# Isolate the EXACT test set (the last 40 samples of the array)
 TRAIN_SIZE = 160
 X_test = X_raw[TRAIN_SIZE:]
 y_test_real = y_raw[TRAIN_SIZE:]
 
-# --- 2. QNODE DEL ALUMNO (MODIFICADO PARA 3D) ---
+# --- 2. STUDENT QNODE (MODIFIED FOR 3D) ---
 dev = qml.device("default.qubit", wires=N_QUBITS)
 @qml.qnode(dev)
 def qnode_bloch(inputs, weights):
@@ -49,13 +49,13 @@ def qnode_bloch(inputs, weights):
     
     return [qml.expval(qml.PauliX(0)), qml.expval(qml.PauliY(0)), qml.expval(qml.PauliZ(0))]
 
-# --- 3. CARGAR MODELO ENTRENADO ---
-print(f"Cargando pesos del Alumno desde: {CHECKPOINT_FILE.name}")
+# --- 3. LOAD TRAINED MODEL ---
+print(f"Loading student weights from: {CHECKPOINT_FILE.name}")
 checkpoint = torch.load(CHECKPOINT_FILE)
 weights = checkpoint['weights']
 bias = checkpoint['bias']
 
-# --- 4. EVALUACIÓN EXACTA SOBRE EL CONJUNTO DE TEST ---
+# --- 4. EXACT EVALUATION ON THE TEST SET ---
 predicciones_xyz = []
 predicciones_clase = []
 
@@ -71,25 +71,25 @@ aciertos = sum([1 for p, r in zip(predicciones_clase, y_test_real) if p == r])
 accuracy = (aciertos / len(y_test_real)) * 100
 
 print("-" * 40)
-print(f"🎯 Precisión recuperada: {accuracy:.2f}%")
+print(f"🎯 Recovered accuracy: {accuracy:.2f}%")
 print("-" * 40)
 
-# --- 5. DIBUJAR LA ESFERA DE BLOCH ---
+# --- 5. DRAW THE BLOCH SPHERE ---
 fig = plt.figure(figsize=(8, 8))
 ax = fig.add_subplot(111, projection='3d')
 
-# Dibujar la estructura de la esfera
+# Draw the sphere structure
 u, v = np.mgrid[0:2*np.pi:40j, 0:np.pi:20j]
 xs = np.cos(u)*np.sin(v)
 ys = np.sin(u)*np.sin(v)
 zs = np.cos(v)
 ax.plot_surface(xs, ys, zs, color="whitesmoke", alpha=0.15, edgecolor="silver", lw=0.5)
 
-# Dibujar el ecuador (Z=0) y los ejes
-ax.plot(np.cos(u[:,0]), np.sin(u[:,0]), 0, color="gray", lw=1.5, label="Frontera de Decisión (Ecuador)")
+# Draw the equator (Z=0) and the axes
+ax.plot(np.cos(u[:,0]), np.sin(u[:,0]), 0, color="gray", lw=1.5, label="Decision Boundary (Equator)")
 ax.plot([0,0], [0,0], [-1,1], color="black", linestyle="--", lw=1)
 
-# Separar los puntos en base a si el modelo ACERTÓ o FALLÓ
+# Separate points based on whether the model got them right or wrong
 for i, coord in enumerate(predicciones_xyz):
     px, py, pz = coord[0].item(), coord[1].item(), coord[2].item()
     
@@ -102,22 +102,21 @@ for i, coord in enumerate(predicciones_xyz):
         
     ax.scatter(px, py, pz, color=color, marker=marker, s=90, alpha=0.8, edgecolor='k' if marker=='o' else None)
 
-# Leyendas invisibles para el cuadro informativo
-ax.scatter([], [], [], color='mediumseagreen', marker='o', label='Acierto', s=60)
-ax.scatter([], [], [], color='crimson', marker='x', label='Fallo', s=60)
+# Invisible legend entries for the info box
+ax.scatter([], [], [], color='mediumseagreen', marker='o', label='Correct', s=60)
+ax.scatter([], [], [], color='crimson', marker='x', label='Incorrect', s=60)
 
-ax.set_title(f'Estados Finales del Modelo (Esfera de Bloch)\nAccuracy en Test: {accuracy:.2f}%', fontweight='bold')
-ax.set_xlabel('Eje X')
-ax.set_ylabel('Eje Y')
-ax.set_zlabel('Eje Z (Clasificación)')
+ax.set_xlabel('X Axis')
+ax.set_ylabel('Y Axis')
+ax.set_zlabel('Z Axis (Classification)')
 ax.legend(loc='upper right')
 
-# Ajustar los límites para proporciones esféricas perfectas
+# Adjust limits for perfect spherical proportions
 ax.set_xlim([-1, 1])
 ax.set_ylim([-1, 1])
 ax.set_zlim([-1, 1])
 ax.view_init(elev=20, azim=60)
 
 plt.savefig(PROYECTO_DIR / "Graficas" / "esfera_bloch_qdataset.png", dpi=300, bbox_inches='tight')
-print("✅ Gráfica guardada como 'esfera_bloch_qdataset.png'")
+print("✅ Figure saved as 'esfera_bloch_qdataset.png'")
 plt.show()
